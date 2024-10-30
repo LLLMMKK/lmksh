@@ -1,0 +1,32 @@
+{
+  "configurations": [
+    {
+      "name": "linux-gcc-x64",
+      "includePath": [
+        "${workspaceFolder}/**"
+      ],
+      "cStandard": "${default}",
+      "cppStandard": "${default}",
+      "intelliSenseMode": "linux-gcc-x64",
+      "defines": [
+        "_DEBUG",
+        "UNICODE",
+        "__GNUC__=7",
+        "__cdecl=__attribute__((__cdecl__))"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}",
+          "/usr/include",
+          "/lib/gcc/x86_64-pc-linux-gnu/14.2.1/include/",
+          "/lib/gcc/x86_64-pc-linux-gnu/14.2.1/include-fixed/",
+          "/lib/gcc/x86_64-pc-linux-gnu/14.2.1/install-tools/include/"
+        ],
+        "limitSymbolsToIncludedHeaders": true,
+        "databaseFilename": ""
+      },
+      "compilerPath": "/usr/bin/gcc"
+    }
+  ],
+  "version": 4
+}
