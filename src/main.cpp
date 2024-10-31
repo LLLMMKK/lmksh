@@ -11,10 +11,22 @@ void eval(char *cmdline);
 int parseline(char *buf, char *argv[]);
 int builtin_command(char *argv[]);
 int main(int argc, char *argv[], char *envp[]) {
+
+  for (int i = 0; envp[i] != NULL; i++)
+    printf("envp[%d] : %s\n", i, envp[i]);
+
   char cmdline[MAXLINE];
+
   while (true) {
-    printf("%s ", getenv("PWD"));
-    printf("> ");
+    printf("%s@%s ", getenv("USER"), getenv("LOGNAME"));
+    char buf[MAXLINE];
+    strcpy(buf, getenv("PWD"));
+
+    char *tmp = strrchr(buf, '/');
+    if (strcmp(buf, "/"))
+      strcpy(buf, tmp + 1);
+    printf("%s > ", buf);
+
     fgets(cmdline, MAXLINE, stdin);
     if (feof(stdin))
       exit(0);
@@ -68,6 +80,56 @@ int builtin_command(char *argv[]) {
   }
 
   if (!strcmp(argv[0], "cd")) {
+
+    if (argv[1][strlen(argv[1]) - 1] == '/') {
+      if (strlen(argv[1]) == 1)
+        setenv("PWD", "/", 1);
+      else
+        argv[1][strlen(argv[1]) - 1] = '\0';
+    }
+
+    if (!strcmp(argv[1], "."))
+      ;
+    // chdir(getenv("PWD"));
+
+    else if (!strcmp(argv[1], "..")) {
+      char buf[MAXLINE];
+      strcpy(buf, getenv("PWD"));
+      char *tmp = strrchr(buf, '/');
+
+      if (&buf[0] == tmp)
+        tmp++; // '/home' -> '/'
+      *tmp = '\0';
+
+      if (!chdir(buf))
+        setenv("PWD", buf, 1);
+      else
+        printf("%s is not a valid directory.\n", buf);
+      // printf("%s\n", buf);
+      // printf("ok = %d\n", chdir(buf));
+
+    }
+
+    else if (argv[1][0] != '/') {
+      char buf[MAXLINE];
+      strcpy(buf, getenv("PWD"));
+      char *tmp = buf;
+      strcat(buf, "/");
+      strcat(buf, argv[1]);
+      if (!chdir(buf))
+        setenv("PWD", buf, 1);
+      else
+        printf("%s is not a valid directory.\n", buf);
+
+    }
+
+    else {
+      if (!chdir(argv[1]))
+        setenv("PWD", argv[1], 1);
+      else
+        printf("%s is not a valid directory.\n", argv[1]);
+      // chdir(argv[1]);
+    }
 
     // how?
 
