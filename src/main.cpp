@@ -1,10 +1,14 @@
 #include <cstddef>
 #include <cstdio>
+#include <readline/history.h>
+#include <readline/readline.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #define MAXLINE 8192
 #define MAXARGS 128
 void eval(char *cmdline);
@@ -12,24 +16,31 @@ int parseline(char *buf, char *argv[]);
 int builtin_command(char *argv[]);
 int main(int argc, char *argv[], char *envp[]) {
 
-  for (int i = 0; envp[i] != NULL; i++)
-    printf("envp[%d] : %s\n", i, envp[i]);
+  // for (int i = 0; envp[i] != NULL; i++)
+  //   printf("envp[%d] : %s\n", i, envp[i]);
 
-  char cmdline[MAXLINE];
+  char *cmdline;
 
   while (true) {
-    printf("%s@%s ", getenv("USER"), getenv("LOGNAME"));
     char buf[MAXLINE];
-    strcpy(buf, getenv("PWD"));
 
-    char *tmp = strrchr(buf, '/');
-    if (strcmp(buf, "/"))
-      strcpy(buf, tmp + 1);
-    printf("%s > ", buf);
+    strcpy(buf, getenv("USER"));
+    strcat(buf, "@");
+    strcat(buf, getenv("LOGNAME"));
+    strcat(buf, " ");
+    char *tmp = strrchr(getenv("PWD"), '/');
+    if (strcmp(getenv("PWD"), "/"))
+      strcat(buf, tmp + 1);
+    else
+      strcat(buf, tmp);
 
-    fgets(cmdline, MAXLINE, stdin);
+    strcat(buf, " > ");
+
+    cmdline = readline(buf);
+
     if (feof(stdin))
       exit(0);
+
     eval(cmdline);
   }
 }
@@ -42,13 +53,25 @@ void eval(char *cmdline) {
   pid_t pid;
 
   strcpy(buf, cmdline);
+
   bg = parseline(buf, argv);
   if (argv[0] == NULL)
     return;
 
   if (!builtin_command(argv)) {
     if ((pid = fork()) == 0) { // child
-      if (execve(argv[0], argv, environ) < 0) {
+      char ex_path[MAXLINE];
+      strcpy(ex_path, "/home/");
+      strcat(ex_path, getenv("USER"));
+      strcat(ex_path, "/codes/c++/lmksh/include/mine/");
+      strcat(ex_path, argv[0]);
+
+      for (int i = 0; argv[i] != NULL; i++)
+        printf("argv[%d] : %s\n", i, argv[i]);
+      // for (int i = 1; i <= tmpi; i++)
+      //   argv[i - 1] = argv[i];
+
+      if (execve(ex_path, argv, environ) < 0) {
         printf("%s: Command not found.\n", argv[0]);
         exit(0);
       }
@@ -130,22 +153,18 @@ int builtin_command(char *argv[]) {
         printf("%s is not a valid directory.\n", argv[1]);
       // chdir(argv[1]);
     }
-
-    // how?
-
     return 1;
   }
 
-  if (!strcmp(argv[0], "&"))
-    return 1;
   return 0;
 }
 // pause command line and build the argv array
 int parseline(char *buf, char *argv[]) {
+
   char *delim;
   int argc;
   int bg;
-  buf[strlen(buf) - 1] = ' ';
+  strcat(buf, " ");
 
   while (*buf && (*buf == ' '))
     buf++;
@@ -163,8 +182,5 @@ int parseline(char *buf, char *argv[]) {
   if (argc == 0)
     return 1;
 
-  if ((bg = (*argv[argc - 1] == '&')) != 0)
-    argv[--argc] = NULL;
-
-  return bg;
+  return 0;
 }
