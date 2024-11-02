@@ -66,8 +66,8 @@ void eval(char *cmdline) {
       strcat(ex_path, "/codes/c++/lmksh/include/mine/");
       strcat(ex_path, argv[0]);
 
-      for (int i = 0; argv[i] != NULL; i++)
-        printf("argv[%d] : %s\n", i, argv[i]);
+      // for (int i = 0; argv[i] != NULL; i++)
+      //   printf("argv[%d] : %s\n", i, argv[i]);
       // for (int i = 1; i <= tmpi; i++)
       //   argv[i - 1] = argv[i];
 
