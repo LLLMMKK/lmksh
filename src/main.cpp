@@ -63,7 +63,7 @@ void eval(char *cmdline) {
       char ex_path[MAXLINE];
       strcpy(ex_path, "/home/");
       strcat(ex_path, getenv("USER"));
-      strcat(ex_path, "/codes/c++/lmksh/include/mine/");
+      strcat(ex_path, "/codes/c++/lmksh/command/mine/");
       strcat(ex_path, argv[0]);
 
       // for (int i = 0; argv[i] != NULL; i++)
