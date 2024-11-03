@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 int main(int argc, char *argv[], char *envp[]) {
-  mkdir(argv[1], 755);
+  mode_t mod = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH;
+  mkdir(argv[1], mod);
   return 0;
 }

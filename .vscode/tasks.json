@@ -52,6 +52,7 @@
             "args": [
                 "${file}",
                 "-lreadline",
+                "-fsanitize=address",
                 "-o",
                 "${fileBasenameNoExtension}.out"
             ],
