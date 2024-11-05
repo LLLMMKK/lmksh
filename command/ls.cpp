@@ -1,22 +1,22 @@
 #include <algorithm>
 #include <cstdio>
+#include <ctime>
 #include <dirent.h>
 #include <fcntl.h>
 #include <grp.h>
 #include <pwd.h>
-#include <readline/history.h>
-#include <readline/readline.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-int main(int argc, char *argv[], char *envp[]) {
+int main(int argc, char *argv[]) {
 
-  bool flaga = 0, flagl = 0;
+  bool flaga = false, flagl = true;
   for (int i = 1; argv[i] != NULL; i++) {
     if (argv[i][0] == '-') {
-      for (int j = 1; j < strlen(argv[i]); j++) {
+      for (int j = 1, len = strlen(argv[i]); j < len; j++) {
         if (argv[i][j] == 'a')
           flaga = 1;
         if (argv[i][j] == 'l')
