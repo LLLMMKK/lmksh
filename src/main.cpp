@@ -1,3 +1,4 @@
+#include <csetjmp>
 #include <cstddef>
 #include <cstdio>
 #include <readline/history.h>
@@ -11,19 +12,25 @@
 
 #define MAXLINE 8192
 #define MAXARGS 128
-void eval(char *cmdline);
+int eval(char *cmdline);
 int parseline(char *buf, char *argv[]);
 int builtin_command(char *argv[]);
+
+sigjmp_buf env;
+void sigint_handler(int sig) { siglongjmp(env, 1); }
+
 int main(int argc, char *argv[], char *envp[]) {
 
-  // for (int i = 0; envp[i] != NULL; i++)
-  //   printf("envp[%d] : %s\n", i, envp[i]);
-
-  char *cmdline;
+  signal(SIGINT, sigint_handler);
 
   while (true) {
-    char buf[MAXLINE];
 
+    if (sigsetjmp(env, 1) == 1) {
+      printf("\n");
+      continue;
+    }
+
+    char buf[MAXLINE];
     strcpy(buf, getenv("USER"));
     strcat(buf, "@");
     strcat(buf, getenv("LOGNAME"));
@@ -33,32 +40,34 @@ int main(int argc, char *argv[], char *envp[]) {
       strcat(buf, tmp + 1);
     else
       strcat(buf, tmp);
-
     strcat(buf, " > ");
 
-    cmdline = readline(buf);
+    char *cmdline = readline(buf);
 
-    if (feof(stdin))
+    if (cmdline == nullptr)
       exit(0);
 
-    eval(cmdline);
+    if (eval(cmdline)) {
+      free(cmdline);
+      exit(0);
+    }
+    free(cmdline);
   }
 }
 
 // evaluate
-void eval(char *cmdline) {
+int eval(char *cmdline) {
   char *argv[MAXARGS]; // argument list execve()
   char buf[MAXLINE];   // command line
-  int bg;              // background
   pid_t pid;
 
   strcpy(buf, cmdline);
-
-  bg = parseline(buf, argv);
+  parseline(buf, argv);
   if (argv[0] == NULL)
-    return;
+    return 0;
 
-  if (!builtin_command(argv)) {
+  int exit_flag;
+  if (!(exit_flag = builtin_command(argv))) {
     if ((pid = fork()) == 0) { // child
       char ex_path[MAXLINE];
       strcpy(ex_path, "/home/");
@@ -77,18 +86,19 @@ void eval(char *cmdline) {
       }
     }
 
-    if (!bg) {
-      int status;
-      waitpid(pid, &status, 0);
-    } else {
-      printf("%d %s", pid, cmdline);
-    }
+    int status;
+    waitpid(pid, &status, 0);
+
+    return 0;
   }
+  if (exit_flag == 2)
+    return 1;
+  return 0;
 }
 // if first arg is a buitin command,run and return true
 int builtin_command(char *argv[]) {
   if (!strcmp(argv[0], "exit"))
-    exit(0);
+    return 2;
 
   if (!strcmp(argv[0], "echo")) {
     for (int i = 1; argv[i] != NULL; i++)
@@ -104,54 +114,17 @@ int builtin_command(char *argv[]) {
 
   if (!strcmp(argv[0], "cd")) {
 
-    if (argv[1][strlen(argv[1]) - 1] == '/') {
-      if (strlen(argv[1]) == 1)
-        setenv("PWD", "/", 1);
-      else
-        argv[1][strlen(argv[1]) - 1] = '\0';
-    }
-
-    if (!strcmp(argv[1], "."))
-      ;
-    // chdir(getenv("PWD"));
-
-    else if (!strcmp(argv[1], "..")) {
-      char buf[MAXLINE];
-      strcpy(buf, getenv("PWD"));
-      char *tmp = strrchr(buf, '/');
-
-      if (&buf[0] == tmp)
-        tmp++; // '/home' -> '/'
-      *tmp = '\0';
-
-      if (!chdir(buf))
-        setenv("PWD", buf, 1);
-      else
-        printf("%s is not a valid directory.\n", buf);
-      // printf("%s\n", buf);
-      // printf("ok = %d\n", chdir(buf));
-
-    }
-
-    else if (argv[1][0] != '/') {
-      char buf[MAXLINE];
-      strcpy(buf, getenv("PWD"));
-      char *tmp = buf;
-      strcat(buf, "/");
-      strcat(buf, argv[1]);
-      if (!chdir(buf))
-        setenv("PWD", buf, 1);
-      else
-        printf("%s is not a valid directory.\n", buf);
-
-    }
-
-    else {
-      if (!chdir(argv[1]))
-        setenv("PWD", argv[1], 1);
-      else
-        printf("%s is not a valid directory.\n", argv[1]);
-      // chdir(argv[1]);
+    if (argv[1] == NULL) {
+      chdir(getenv("HOME"));
+      char cwd[MAXLINE];
+      getcwd(cwd, sizeof(cwd));
+      setenv("PWD", cwd, 1);
+    } else if (chdir(argv[1]) == 0) {
+      char cwd[MAXLINE];
+      getcwd(cwd, sizeof(cwd));
+      setenv("PWD", cwd, 1);
+    } else {
+      printf("%s is not a valid directory.\n", argv[1]);
     }
     return 1;
   }
