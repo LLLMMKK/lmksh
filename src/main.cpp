@@ -1,6 +1,7 @@
 #include <csetjmp>
 #include <cstddef>
 #include <cstdio>
+#include <fcntl.h>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <stdio.h>
@@ -12,6 +13,7 @@
 
 #define MAXLINE 8192
 #define MAXARGS 128
+extern char **environ;
 int eval(char *cmdline);
 int parseline(char *buf, char *argv[]);
 int builtin_command(char *argv[]);
@@ -19,7 +21,7 @@ int builtin_command(char *argv[]);
 sigjmp_buf env;
 void sigint_handler(int sig) { siglongjmp(env, 1); }
 
-int main(int argc, char *argv[], char *envp[]) {
+int main(int argc, char *argv[]) {
 
   signal(SIGINT, sigint_handler);
 
@@ -40,7 +42,7 @@ int main(int argc, char *argv[], char *envp[]) {
       strcat(buf, tmp + 1);
     else
       strcat(buf, tmp);
-    strcat(buf, " > ");
+    strcat(buf, " $ ");
 
     char *cmdline = readline(buf);
 
@@ -75,11 +77,6 @@ int eval(char *cmdline) {
       strcat(ex_path, "/codes/c++/lmksh/command/mine/");
       strcat(ex_path, argv[0]);
 
-      // for (int i = 0; argv[i] != NULL; i++)
-      //   printf("argv[%d] : %s\n", i, argv[i]);
-      // for (int i = 1; i <= tmpi; i++)
-      //   argv[i - 1] = argv[i];
-
       if (execve(ex_path, argv, environ) < 0) {
         printf("%s: Command not found.\n", argv[0]);
         exit(0);
@@ -95,21 +92,57 @@ int eval(char *cmdline) {
     return 1;
   return 0;
 }
+
+void redirect_stdin(char *argv) {
+  int fp = open(argv, O_RDONLY);
+  dup2(fp, 0);
+  close(fp);
+}
+void redirect_stdout(char *argv) {
+  int fp = open(argv, O_WRONLY | O_CREAT, 0644);
+  dup2(fp, 1);
+  close(fp);
+}
+int return_with_reset_inout(int in, int out, int x) {
+  dup2(in, 0);
+  dup2(out, 1);
+  close(in);
+  close(out);
+  return x;
+}
 // if first arg is a buitin command,run and return true
 int builtin_command(char *argv[]) {
+  int in = dup(0), out = dup(1);
+  for (int i = 0; argv[i] != NULL; i++) {
+    if (!strcmp(argv[i], "<")) {
+      redirect_stdin(argv[++i]);
+      continue;
+    }
+    if (!strcmp(argv[i], ">")) {
+      redirect_stdout(argv[++i]);
+      continue;
+    }
+  }
+
   if (!strcmp(argv[0], "exit"))
-    return 2;
+    return return_with_reset_inout(in, out, 2);
 
   if (!strcmp(argv[0], "echo")) {
-    for (int i = 1; argv[i] != NULL; i++)
+    for (int i = 1; argv[i] != NULL; i++) {
+      if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {
+        i++;
+        continue;
+      }
       printf("%s ", argv[i]);
+    }
+
     printf("\n");
-    return 1;
+    return return_with_reset_inout(in, out, 1);
   }
 
   if (!strcmp(argv[0], "pwd")) {
     printf("%s\n", getenv("PWD"));
-    return 1;
+    return return_with_reset_inout(in, out, 1);
   }
 
   if (!strcmp(argv[0], "cd")) {
@@ -126,10 +159,10 @@ int builtin_command(char *argv[]) {
     } else {
       printf("%s is not a valid directory.\n", argv[1]);
     }
-    return 1;
+    return return_with_reset_inout(in, out, 1);
   }
 
-  return 0;
+  return return_with_reset_inout(in, out, 0);
 }
 // pause command line and build the argv array
 int parseline(char *buf, char *argv[]) {
