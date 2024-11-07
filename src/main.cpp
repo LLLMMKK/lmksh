@@ -57,42 +57,6 @@ int main(int argc, char *argv[]) {
   }
 }
 
-// evaluate
-int eval(char *cmdline) {
-  char *argv[MAXARGS]; // argument list execve()
-  char buf[MAXLINE];   // command line
-  pid_t pid;
-
-  strcpy(buf, cmdline);
-  parseline(buf, argv);
-  if (argv[0] == NULL)
-    return 0;
-
-  int exit_flag;
-  if (!(exit_flag = builtin_command(argv))) {
-    if ((pid = fork()) == 0) { // child
-      char ex_path[MAXLINE];
-      strcpy(ex_path, "/home/");
-      strcat(ex_path, getenv("USER"));
-      strcat(ex_path, "/codes/c++/lmksh/command/mine/");
-      strcat(ex_path, argv[0]);
-
-      if (execve(ex_path, argv, environ) < 0) {
-        printf("%s: Command not found.\n", argv[0]);
-        exit(0);
-      }
-    }
-
-    int status;
-    waitpid(pid, &status, 0);
-
-    return 0;
-  }
-  if (exit_flag == 2)
-    return 1;
-  return 0;
-}
-
 void redirect_stdin(char *argv) {
   int fp = open(argv, O_RDONLY);
   dup2(fp, 0);
@@ -110,6 +74,52 @@ int return_with_reset_inout(int in, int out, int x) {
   close(out);
   return x;
 }
+// evaluate
+int eval(char *cmdline) {
+  char *argv[MAXARGS]; // argument list execve()
+  char buf[MAXLINE];   // command line
+  pid_t pid;
+
+  strcpy(buf, cmdline);
+  parseline(buf, argv);
+  if (argv[0] == NULL)
+    return 0;
+
+  int exit_flag;
+  if (!(exit_flag = builtin_command(argv))) {
+    if ((pid = fork()) == 0) { // child
+      char ex_path[MAXLINE];
+      strcpy(ex_path, getenv("HOME"));
+      strcat(ex_path, "/codes/c++/lmksh/command/mine/");
+      strcat(ex_path, argv[0]);
+
+      for (int i = 0; argv[i] != NULL; i++) {
+        if (!strcmp(argv[i], "<")) {
+          redirect_stdin(argv[++i]);
+          continue;
+        }
+        if (!strcmp(argv[i], ">")) {
+          redirect_stdout(argv[++i]);
+          continue;
+        }
+      }
+
+      if (execve(ex_path, argv, environ) < 0) {
+        printf("%s: Command not found.\n", argv[0]);
+        exit(0);
+      }
+    }
+
+    int status;
+    waitpid(pid, &status, 0);
+
+    return 0;
+  }
+  if (exit_flag == 2)
+    return 1;
+  return 0;
+}
+
 // if first arg is a buitin command,run and return true
 int builtin_command(char *argv[]) {
   int in = dup(0), out = dup(1);
