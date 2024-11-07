@@ -74,6 +74,7 @@ int return_with_reset_inout(int in, int out, int x) {
   close(out);
   return x;
 }
+
 // evaluate
 int eval(char *cmdline) {
   char *argv[MAXARGS]; // argument list execve()
@@ -85,39 +86,130 @@ int eval(char *cmdline) {
   if (argv[0] == NULL)
     return 0;
 
-  int exit_flag;
-  if (!(exit_flag = builtin_command(argv))) {
-    if ((pid = fork()) == 0) { // child
-      char ex_path[MAXLINE];
-      strcpy(ex_path, getenv("HOME"));
-      strcat(ex_path, "/codes/c++/lmksh/command/mine/");
-      strcat(ex_path, argv[0]);
+  int argc = 0;
+  for (int i = 0; argv[i] != NULL; i++)
+    ++argc;
 
-      for (int i = 0; argv[i] != NULL; i++) {
-        if (!strcmp(argv[i], "<")) {
-          redirect_stdin(argv[++i]);
-          continue;
-        }
-        if (!strcmp(argv[i], ">")) {
-          redirect_stdout(argv[++i]);
-          continue;
+  // i=0 i<argc
+
+  char *tmp_argv[MAXARGS][MAXARGS];
+  int command_count = 0, last = 0;
+  int command_len[MAXARGS];
+  for (int i = 0; i < argc; i++) {
+    if (!strcmp(argv[i], "|")) {
+
+      ++command_count;
+      command_len[command_count] = -1;
+      for (int j = last; j < i; j++)
+        tmp_argv[command_count][++command_len[command_count]] = argv[j];
+      last = i + 1;
+    }
+  }
+  ++command_count;
+  command_len[command_count] = -1;
+  for (int j = last; j < argc; j++)
+    tmp_argv[command_count][++command_len[command_count]] = argv[j];
+
+  if (command_count > 1) {
+
+    pid_t Pid;
+    if ((Pid = fork()) == 0) {
+      pid_t pids[MAXLINE];
+
+      int fds[MAXLINE][2];
+      for (int T = 1; T < command_count; T++)
+        pipe(fds[T]);
+
+      int child = 0;
+
+      for (int T = 1; T <= command_count; T++) {
+        if ((pids[T] = fork()) == 0) {
+
+          if (T < command_count) {
+            dup2(fds[T][1], 1);
+            close(fds[T][0]);
+          }
+          if (T > 1) {
+            dup2(fds[T - 1][0], 0);
+            close(fds[T - 1][1]);
+          }
+          ++child;
+          break;
         }
       }
 
-      if (execve(ex_path, argv, environ) < 0) {
-        printf("%s: Command not found.\n", argv[0]);
+      if (!child) {
+        for (int T = 1; T < command_count; T++)
+          close(fds[T][0]), close(fds[T][1]);
+      }
+
+      if (child) {
+        char **t = tmp_argv[child];
+        if (!builtin_command(t)) {
+          char ex_path[MAXLINE];
+          strcpy(ex_path, getenv("HOME"));
+          strcat(ex_path, "/codes/c++/lmksh/command/mine/");
+          strcat(ex_path, t[0]);
+
+          for (int i = 0; t[i] != NULL; i++) {
+            if (!strcmp(t[i], "<")) {
+              redirect_stdin(t[++i]);
+              continue;
+            }
+            if (!strcmp(t[i], ">")) {
+              redirect_stdout(t[++i]);
+              continue;
+            }
+          }
+
+          if (execve(ex_path, t, environ) < 0) {
+            printf("%s: Command not found.\n", t[0]);
+            exit(0);
+          }
+        }
+
         exit(0);
       }
     }
+    waitpid(Pid, NULL, 0);
+    return 0;
 
-    int status;
-    waitpid(pid, &status, 0);
+  } else {
+    int exit_flag;
+    if (!(exit_flag = builtin_command(argv))) {
+      if ((pid = fork()) == 0) { // child
+        char ex_path[MAXLINE];
+        strcpy(ex_path, getenv("HOME"));
+        strcat(ex_path, "/codes/c++/lmksh/command/mine/");
+        strcat(ex_path, argv[0]);
 
+        for (int i = 0; argv[i] != NULL; i++) {
+          if (!strcmp(argv[i], "<")) {
+            redirect_stdin(argv[++i]);
+            continue;
+          }
+          if (!strcmp(argv[i], ">")) {
+            redirect_stdout(argv[++i]);
+            continue;
+          }
+        }
+
+        if (execve(ex_path, argv, environ) < 0) {
+          printf("%s: Command not found.\n", argv[0]);
+          exit(0);
+        }
+      }
+
+      int status;
+      waitpid(pid, &status, 0);
+
+      return 0;
+    }
+
+    if (exit_flag == 2)
+      return 1;
     return 0;
   }
-  if (exit_flag == 2)
-    return 1;
-  return 0;
 }
 
 // if first arg is a buitin command,run and return true
