@@ -1,13 +1,15 @@
+#include <algorithm>
 #include <csetjmp>
 #include <cstddef>
 #include <cstdio>
+#include <ctime>
 #include <fcntl.h>
-#include <iostream>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -16,7 +18,7 @@
 #define MAXARGS 128
 extern char **environ;
 int eval(char *cmdline);
-int parseline(char *buf, char *argv[]);
+int parseline(char *buf, char *argv[], int argc);
 int builtin_command(char *argv[]);
 
 sigjmp_buf env;
@@ -34,7 +36,12 @@ int main(int argc, char *argv[]) {
     }
 
     char buf[MAXLINE];
-    strcpy(buf, getenv("USER"));
+
+    time_t t = time(NULL);
+    strcpy(buf, ctime(&t));
+    buf[strlen(buf) - 1] = ' ';
+    strcat(buf, "| ");
+    strcat(buf, getenv("USER"));
     strcat(buf, "@");
     strcat(buf, getenv("LOGNAME"));
     strcat(buf, " ");
@@ -58,33 +65,31 @@ int main(int argc, char *argv[]) {
   }
 }
 
-void redirect_stdin(char *argv) {
-  int fp = open(argv, O_RDONLY);
-  dup2(fp, 0);
-  close(fp);
-}
-void redirect_stdout(char *argv) {
-  int fp = open(argv, O_WRONLY | O_CREAT, 0644);
-  dup2(fp, 1);
-  close(fp);
-}
-int return_with_reset_inout(int in, int out, int x) {
-  dup2(in, 0);
-  dup2(out, 1);
-  close(in);
-  close(out);
-  return x;
-}
+void redirect_stdin(char *argv);
+void redirect_stdout(char *argv);
+int return_with_reset_inout(int in, int out, int x);
+void check_redir(char **argv, int argc);
 
-void check_redir(char **argv, int argc) {
-  for (int i = 0; i + 1 < argc; i++) {
-    if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {
-      for (int j = i + 1; j + 1 < argc; j++) {
-        std::swap(argv[j + 1], argv[j]);
-        std::swap(argv[j], argv[j - 1]);
-      }
-      break;
+void execve_command(char **argv) {
+  char ex_path[MAXLINE];
+  strcpy(ex_path, getenv("HOME"));
+  strcat(ex_path, "/codes/c++/lmksh/command/mine/");
+  strcat(ex_path, argv[0]);
+
+  for (int i = 0; argv[i] != NULL; i++) {
+    if (!strcmp(argv[i], "<")) {
+      redirect_stdin(argv[++i]);
+      continue;
     }
+    if (!strcmp(argv[i], ">")) {
+      redirect_stdout(argv[++i]);
+      continue;
+    }
+  }
+
+  if (execve(ex_path, argv, environ) < 0) {
+    printf("%s: Command not found.\n", argv[0]);
+    exit(0);
   }
 }
 // evaluate
@@ -94,7 +99,7 @@ int eval(char *cmdline) {
   pid_t pid;
 
   strcpy(buf, cmdline);
-  parseline(buf, argv);
+  parseline(buf, argv, 0);
   if (argv[0] == NULL)
     return 0;
 
@@ -116,6 +121,7 @@ int eval(char *cmdline) {
         tmp_argv[command_count][command_len[command_count]++] = argv[j];
       tmp_argv[command_count][command_len[command_count]] = NULL;
       check_redir(tmp_argv[command_count], command_len[command_count]);
+      check_redir(tmp_argv[command_count], command_len[command_count]);
       last = i + 1;
     }
   }
@@ -125,7 +131,7 @@ int eval(char *cmdline) {
     tmp_argv[command_count][command_len[command_count]++] = argv[j];
   tmp_argv[command_count][command_len[command_count]] = NULL;
   check_redir(tmp_argv[command_count], command_len[command_count]);
-
+  check_redir(tmp_argv[command_count], command_len[command_count]);
   if (command_count > 1) {
 
     // for (int i = 1; i <= command_count; i++) {
@@ -169,33 +175,13 @@ int eval(char *cmdline) {
 
         char **t = tmp_argv[which_child];
 
-        // for (int i = 0; t[i] != NULL; i++)
-        //   std::cerr << t[i] << ' ';
-        // std::cerr << '\n';
+        for (int i = 0; t[i] != NULL; i++)
+          fprintf(stderr, "%s ", t[i]);
+        fprintf(stderr, "\n");
 
         if (!builtin_command(t)) {
-          char ex_path[MAXLINE];
-          strcpy(ex_path, getenv("HOME"));
-          strcat(ex_path, "/codes/c++/lmksh/command/mine/");
-          strcat(ex_path, t[0]);
-
-          for (int i = 0; t[i] != NULL; i++) {
-            if (!strcmp(t[i], "<")) {
-              redirect_stdin(t[++i]);
-              continue;
-            }
-            if (!strcmp(t[i], ">")) {
-              redirect_stdout(t[++i]);
-              continue;
-            }
-          }
-
-          if (execve(ex_path, t, environ) < 0) {
-            printf("%s: Command not found.\n", t[0]);
-            exit(0);
-          }
+          execve_command(t);
         }
-
         exit(0);
       }
     }
@@ -206,26 +192,7 @@ int eval(char *cmdline) {
     int exit_flag;
     if (!(exit_flag = builtin_command(argv))) {
       if ((pid = fork()) == 0) { // child
-        char ex_path[MAXLINE];
-        strcpy(ex_path, getenv("HOME"));
-        strcat(ex_path, "/codes/c++/lmksh/command/mine/");
-        strcat(ex_path, argv[0]);
-
-        for (int i = 0; argv[i] != NULL; i++) {
-          if (!strcmp(argv[i], "<")) {
-            redirect_stdin(argv[++i]);
-            continue;
-          }
-          if (!strcmp(argv[i], ">")) {
-            redirect_stdout(argv[++i]);
-            continue;
-          }
-        }
-
-        if (execve(ex_path, argv, environ) < 0) {
-          printf("%s: Command not found.\n", argv[0]);
-          exit(0);
-        }
+        execve_command(argv);
       }
 
       int status;
@@ -265,7 +232,6 @@ int builtin_command(char *argv[]) {
       }
       printf("%s ", argv[i]);
     }
-
     printf("\n");
     return return_with_reset_inout(in, out, 1);
   }
@@ -292,20 +258,41 @@ int builtin_command(char *argv[]) {
     return return_with_reset_inout(in, out, 1);
   }
 
+  if (!strcmp(argv[0], "xargs")) {
+    int argc = 0;
+    for (int i = 0; argv[i] != NULL; i++)
+      ++argc;
+
+    char buffer[8192];
+    ssize_t bytesRead;
+    while ((bytesRead = read(STDIN_FILENO, buffer, sizeof(buffer) - 1)) > 0) {
+      buffer[bytesRead] = '\0';
+
+      parseline(buffer, argv, argc);
+      argc = 0;
+      for (int i = 0; argv[i] != NULL; i++)
+        ++argc;
+    }
+
+    if (!builtin_command(argv + 1)) {
+      execve_command(argv + 1);
+    }
+
+    return return_with_reset_inout(in, out, 1);
+  }
+
   return return_with_reset_inout(in, out, 0);
 }
 // pause command line and build the argv array
-int parseline(char *buf, char *argv[]) {
+int parseline(char *buf, char *argv[], int argc) {
 
   char *delim;
-  int argc;
   int bg;
   strcat(buf, " ");
 
   while (*buf && (*buf == ' '))
     buf++;
 
-  argc = 0;
   while ((delim = strchr(buf, ' '))) {
     argv[argc++] = buf;
     *delim = '\0';
@@ -319,4 +306,33 @@ int parseline(char *buf, char *argv[]) {
     return 1;
 
   return 0;
+}
+void redirect_stdin(char *argv) {
+  int fp = open(argv, O_RDONLY);
+  dup2(fp, 0);
+  close(fp);
+}
+void redirect_stdout(char *argv) {
+  int fp = open(argv, O_WRONLY | O_CREAT, 0644);
+  dup2(fp, 1);
+  close(fp);
+}
+int return_with_reset_inout(int in, int out, int x) {
+  dup2(in, 0);
+  dup2(out, 1);
+  close(in);
+  close(out);
+  return x;
+}
+
+void check_redir(char **argv, int argc) {
+  for (int i = 0; i + 1 < argc; i++) {
+    if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {
+      for (int j = i + 1; j + 1 < argc; j++) {
+        std::swap(argv[j + 1], argv[j]);
+        std::swap(argv[j], argv[j - 1]);
+      }
+      break;
+    }
+  }
 }
