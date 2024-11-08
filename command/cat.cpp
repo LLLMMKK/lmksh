@@ -5,23 +5,43 @@
 #include <sys/stat.h>
 #include <unistd.h>
 int main(int argc, char *argv[], char *envp[]) {
-
+  int isnull = 1;
   for (int i = 1; argv[i] != NULL; i++) {
-    if (strcmp(argv[i], "<") && strcmp(argv[i], ">")) {
-      int fd = open(argv[i], O_RDONLY);
-      if (fd == -1)
-        printf("No file named %s.\n", argv[i]);
-      else {
-        char buf[512000];
-        ssize_t rd = read(fd, buf, 512000);
-        close(fd);
-        if (rd == -1)
-          printf("Failed to read the file %s.\n", argv[i]);
-        else
-          printf("%s\n", buf);
+    if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {
+      i++;
+      continue;
+    }
+
+    isnull = 0;
+
+    if (!strcmp(argv[i], "-")) {
+      char buffer[8192];
+      ssize_t bytesRead;
+      while ((bytesRead = read(STDIN_FILENO, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytesRead] = '\0';
+        printf("%s", buffer);
       }
     }
+    int fd = open(argv[i], O_RDONLY);
+    if (fd == -1)
+      printf("No file named %s.\n", argv[i]);
+    else {
+      char buf[512000];
+      ssize_t rd = read(fd, buf, 512000);
+      close(fd);
+      if (rd == -1)
+        printf("Failed to read the file %s.\n", argv[i]);
+      else
+        printf("%s\n", buf);
+    }
   }
-
+  if (isnull) {
+    char buffer[8192];
+    ssize_t bytesRead;
+    while ((bytesRead = read(STDIN_FILENO, buffer, sizeof(buffer) - 1)) > 0) {
+      buffer[bytesRead] = '\0';
+      printf("%s", buffer);
+    }
+  }
   exit(0);
 }
