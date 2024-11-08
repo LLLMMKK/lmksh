@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <fcntl.h>
+#include <iostream>
 #include <readline/history.h>
 #include <readline/readline.h>
 #include <stdio.h>
@@ -75,6 +76,17 @@ int return_with_reset_inout(int in, int out, int x) {
   return x;
 }
 
+void check_redir(char **argv, int argc) {
+  for (int i = 0; i + 1 < argc; i++) {
+    if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {
+      for (int j = i + 1; j + 1 < argc; j++) {
+        std::swap(argv[j + 1], argv[j]);
+        std::swap(argv[j], argv[j - 1]);
+      }
+      break;
+    }
+  }
+}
 // evaluate
 int eval(char *cmdline) {
   char *argv[MAXARGS]; // argument list execve()
@@ -99,18 +111,28 @@ int eval(char *cmdline) {
     if (!strcmp(argv[i], "|")) {
 
       ++command_count;
-      command_len[command_count] = -1;
+      command_len[command_count] = 0;
       for (int j = last; j < i; j++)
-        tmp_argv[command_count][++command_len[command_count]] = argv[j];
+        tmp_argv[command_count][command_len[command_count]++] = argv[j];
+      tmp_argv[command_count][command_len[command_count]] = NULL;
+      check_redir(tmp_argv[command_count], command_len[command_count]);
       last = i + 1;
     }
   }
   ++command_count;
-  command_len[command_count] = -1;
+  command_len[command_count] = 0;
   for (int j = last; j < argc; j++)
-    tmp_argv[command_count][++command_len[command_count]] = argv[j];
+    tmp_argv[command_count][command_len[command_count]++] = argv[j];
+  tmp_argv[command_count][command_len[command_count]] = NULL;
+  check_redir(tmp_argv[command_count], command_len[command_count]);
 
   if (command_count > 1) {
+
+    // for (int i = 1; i <= command_count; i++) {
+    //   for (int j = 0; tmp_argv[i][j] != NULL; j++)
+    //     printf("%s ", tmp_argv[i][j]);
+    //   printf("\n");
+    // }
 
     pid_t Pid;
     if ((Pid = fork()) == 0) {
@@ -120,11 +142,11 @@ int eval(char *cmdline) {
       for (int T = 1; T < command_count; T++)
         pipe(fds[T]);
 
-      int child = 0;
+      int child = 0, which_child = 0;
 
       for (int T = 1; T <= command_count; T++) {
+        ++which_child;
         if ((pids[T] = fork()) == 0) {
-
           if (T < command_count) {
             dup2(fds[T][1], 1);
             close(fds[T][0]);
@@ -144,7 +166,13 @@ int eval(char *cmdline) {
       }
 
       if (child) {
-        char **t = tmp_argv[child];
+
+        char **t = tmp_argv[which_child];
+
+        // for (int i = 0; t[i] != NULL; i++)
+        //   std::cerr << t[i] << ' ';
+        // std::cerr << '\n';
+
         if (!builtin_command(t)) {
           char ex_path[MAXLINE];
           strcpy(ex_path, getenv("HOME"));
