@@ -15,7 +15,7 @@
 #include <unistd.h>
 
 #define MAXLINE 8192
-#define MAXARGS 128
+#define MAXARGS 256
 extern char **environ;
 int eval(char *cmdline);
 int parseline(char *buf, char *argv[], int argc);
@@ -103,6 +103,9 @@ int eval(char *cmdline) {
   if (argv[0] == NULL)
     return 0;
 
+  // if (!strcmp(argv[0], "exit"))
+  //   return 1;
+
   int argc = 0;
   for (int i = 0; argv[i] != NULL; i++)
     ++argc;
@@ -142,7 +145,7 @@ int eval(char *cmdline) {
 
     pid_t Pid;
     if ((Pid = fork()) == 0) {
-      pid_t pids[MAXLINE];
+      pid_t pid;
 
       int fds[MAXLINE][2];
       for (int T = 1; T < command_count; T++)
@@ -152,32 +155,31 @@ int eval(char *cmdline) {
 
       for (int T = 1; T <= command_count; T++) {
         ++which_child;
-        if ((pids[T] = fork()) == 0) {
+        if ((pid = fork()) == 0) {
           if (T < command_count) {
             dup2(fds[T][1], 1);
-            close(fds[T][0]);
+            // close(fds[T][0]);
           }
           if (T > 1) {
             dup2(fds[T - 1][0], 0);
-            close(fds[T - 1][1]);
+            // close(fds[T - 1][1]);
           }
+
           ++child;
           break;
         }
       }
 
-      if (!child) {
-        for (int T = 1; T < command_count; T++)
-          close(fds[T][0]), close(fds[T][1]);
-      }
+      for (int T = 1; T < command_count; T++)
+        close(fds[T][0]), close(fds[T][1]);
 
       if (child) {
 
         char **t = tmp_argv[which_child];
 
-        for (int i = 0; t[i] != NULL; i++)
-          fprintf(stderr, "%s ", t[i]);
-        fprintf(stderr, "\n");
+        // for (int i = 0; t[i] != NULL; i++)
+        //   fprintf(stderr, "%s ", t[i]);
+        // fprintf(stderr, "\n");
 
         if (!builtin_command(t)) {
           execve_command(t);
@@ -195,8 +197,7 @@ int eval(char *cmdline) {
         execve_command(argv);
       }
 
-      int status;
-      waitpid(pid, &status, 0);
+      waitpid(pid, NULL, 0);
 
       return 0;
     }
