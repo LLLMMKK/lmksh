@@ -94,6 +94,7 @@ void execve_command(char **argv) {
 }
 // evaluate
 int eval(char *cmdline) {
+
   char *argv[MAXARGS]; // argument list execve()
   char buf[MAXLINE];   // command line
   pid_t pid;
