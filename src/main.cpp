@@ -182,8 +182,8 @@ int eval(char *cmdline) {
         if (!builtin_command(t)) {
           execve_command(t);
         }
-        exit(0);
       }
+      exit(0);
     }
     waitpid(Pid, NULL, 0);
     return 0;
