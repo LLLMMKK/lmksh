@@ -1,4 +1,4 @@
-#include <algorithm>
+#include "../include/redirect.h"
 #include <csetjmp>
 #include <cstddef>
 #include <cstdio>
@@ -20,23 +20,17 @@ extern char **environ;
 int eval(char *cmdline);
 int parseline(char *buf, char *argv[], int argc);
 int builtin_command(char *argv[]);
-
 sigjmp_buf env;
 void sigint_handler(int sig) { siglongjmp(env, 1); }
-
 int main() {
-
   signal(SIGINT, sigint_handler);
-
   while (true) {
-
     if (sigsetjmp(env, 1) == 1) {
       printf("\n");
       continue;
     }
 
     char buf[MAXLINE];
-
     time_t t = time(NULL);
     strcpy(buf, ctime(&t));
     buf[strlen(buf) - 1] = ' ';
@@ -51,74 +45,37 @@ int main() {
     else
       strcat(buf, tmp);
     strcat(buf, " $ ");
-
     char *cmdline = readline(buf);
 
     if (cmdline == nullptr)
       exit(0);
 
-    if (eval(cmdline)) {
-      free(cmdline);
-      exit(0);
-    }
+    if (eval(cmdline))
+      free(cmdline), exit(0);
     free(cmdline);
   }
 }
-
-void redirect_stdin(char *argv);
-void redirect_stdout(char *argv);
-int return_with_reset_inout(int in, int out, int x);
-void check_redir(char **argv, int argc);
-
-void execve_command(char **argv) {
-  char ex_path[MAXLINE];
-  strcpy(ex_path, getenv("HOME"));
-  strcat(ex_path, "/codes/c++/lmksh/command/mine/");
-  strcat(ex_path, argv[0]);
-
-  for (int i = 0; argv[i] != NULL; i++) {
-    if (!strcmp(argv[i], "<")) {
-      redirect_stdin(argv[++i]);
-      continue;
-    }
-    if (!strcmp(argv[i], ">")) {
-      redirect_stdout(argv[++i]);
-      continue;
-    }
-  }
-
-  if (execve(ex_path, argv, environ) < 0) {
-    printf("%s: Command not found.\n", argv[0]);
-    exit(0);
-  }
-}
+void execve_command(char **argv);
 // evaluate
 int eval(char *cmdline) {
 
   char *argv[MAXARGS]; // argument list execve()
   char buf[MAXLINE];   // command line
   pid_t pid;
-
   strcpy(buf, cmdline);
   parseline(buf, argv, 0);
   if (argv[0] == NULL)
     return 0;
 
-  // if (!strcmp(argv[0], "exit"))
-  //   return 1;
-
-  int argc = 0;
+  int argc = 0; // i=0 i<argc
   for (int i = 0; argv[i] != NULL; i++)
     ++argc;
-
-  // i=0 i<argc
 
   char *tmp_argv[MAXARGS][MAXARGS];
   int command_count = 0, last = 0;
   int command_len[MAXARGS];
   for (int i = 0; i < argc; i++) {
     if (!strcmp(argv[i], "|")) {
-
       ++command_count;
       command_len[command_count] = 0;
       for (int j = last; j < i; j++)
@@ -183,15 +140,11 @@ int eval(char *cmdline) {
   } else {
     int exit_flag;
     if (!(exit_flag = builtin_command(argv))) {
-      if ((pid = fork()) == 0) { // child
+      if ((pid = fork()) == 0) // child
         execve_command(argv);
-      }
-
       waitpid(pid, NULL, 0);
-
       return 0;
     }
-
     if (exit_flag == 2)
       return 1;
     return 0;
@@ -297,32 +250,25 @@ int parseline(char *buf, char *argv[], int argc) {
 
   return 0;
 }
-void redirect_stdin(char *argv) {
-  int fp = open(argv, O_RDONLY);
-  dup2(fp, STDIN_FILENO);
-  close(fp);
-}
-void redirect_stdout(char *argv) {
-  int fp = open(argv, O_WRONLY | O_CREAT, 0644);
-  dup2(fp, STDOUT_FILENO);
-  close(fp);
-}
-int return_with_reset_inout(int in, int out, int x) {
-  dup2(in, STDIN_FILENO);
-  dup2(out, STDOUT_FILENO);
-  close(in);
-  close(out);
-  return x;
-}
+void execve_command(char **argv) {
+  char ex_path[MAXLINE];
+  strcpy(ex_path, getenv("HOME"));
+  strcat(ex_path, "/codes/c++/lmksh/command/mine/");
+  strcat(ex_path, argv[0]);
 
-void check_redir(char **argv, int argc) {
-  for (int i = 0; i + 1 < argc; i++) {
-    if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {
-      for (int j = i + 1; j + 1 < argc; j++) {
-        std::swap(argv[j + 1], argv[j]);
-        std::swap(argv[j], argv[j - 1]);
-      }
-      break;
+  for (int i = 0; argv[i] != NULL; i++) {
+    if (!strcmp(argv[i], "<")) {
+      redirect_stdin(argv[++i]);
+      continue;
     }
+    if (!strcmp(argv[i], ">")) {
+      redirect_stdout(argv[++i]);
+      continue;
+    }
+  }
+
+  if (execve(ex_path, argv, environ) < 0) {
+    printf("%s: Command not found.\n", argv[0]);
+    exit(0);
   }
 }
