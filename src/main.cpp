@@ -24,7 +24,7 @@ int builtin_command(char *argv[]);
 sigjmp_buf env;
 void sigint_handler(int sig) { siglongjmp(env, 1); }
 
-int main(int argc, char *argv[]) {
+int main() {
 
   signal(SIGINT, sigint_handler);
 
@@ -138,14 +138,9 @@ int eval(char *cmdline) {
   check_redir(tmp_argv[command_count], command_len[command_count]);
   if (command_count > 1) {
 
-    // for (int i = 1; i <= command_count; i++) {
-    //   for (int j = 0; tmp_argv[i][j] != NULL; j++)
-    //     printf("%s ", tmp_argv[i][j]);
-    //   printf("\n");
-    // }
-
     pid_t Pid;
     if ((Pid = fork()) == 0) {
+      setpgid(0, 0);
       pid_t pid;
 
       int fds[MAXLINE][2];
@@ -157,14 +152,11 @@ int eval(char *cmdline) {
       for (int T = 1; T <= command_count; T++) {
         ++which_child;
         if ((pid = fork()) == 0) {
-          if (T < command_count) {
+          if (T < command_count)
             dup2(fds[T][1], STDOUT_FILENO);
-            // close(fds[T][0]);
-          }
-          if (T > 1) {
+
+          if (T > 1)
             dup2(fds[T - 1][0], STDIN_FILENO);
-            // close(fds[T - 1][1]);
-          }
 
           ++child;
           break;
@@ -178,14 +170,11 @@ int eval(char *cmdline) {
 
         char **t = tmp_argv[which_child];
 
-        // for (int i = 0; t[i] != NULL; i++)
-        //   fprintf(stderr, "%s ", t[i]);
-        // fprintf(stderr, "\n");
-
-        if (!builtin_command(t)) {
+        if (!builtin_command(t))
           execve_command(t);
-        }
       }
+      while (waitpid(-Pid, NULL, 0) > 0)
+        ;
       exit(0);
     }
     waitpid(Pid, NULL, 0);
@@ -289,7 +278,6 @@ int builtin_command(char *argv[]) {
 int parseline(char *buf, char *argv[], int argc) {
 
   char *delim;
-  int bg;
   strcat(buf, " ");
 
   while (*buf && (*buf == ' '))
