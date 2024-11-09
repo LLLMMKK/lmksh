@@ -11,6 +11,8 @@ int main(int argc, char *argv[], char *envp[]) {
       i++;
       continue;
     }
+    if (!strcmp(argv[i], "\n"))
+      continue;
 
     isnull = 0;
 

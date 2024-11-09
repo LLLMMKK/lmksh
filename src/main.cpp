@@ -158,11 +158,11 @@ int eval(char *cmdline) {
         ++which_child;
         if ((pid = fork()) == 0) {
           if (T < command_count) {
-            dup2(fds[T][1], 1);
+            dup2(fds[T][1], STDOUT_FILENO);
             // close(fds[T][0]);
           }
           if (T > 1) {
-            dup2(fds[T - 1][0], 0);
+            dup2(fds[T - 1][0], STDIN_FILENO);
             // close(fds[T - 1][1]);
           }
 
@@ -211,7 +211,7 @@ int eval(char *cmdline) {
 
 // if first arg is a buitin command,run and return true
 int builtin_command(char *argv[]) {
-  int in = dup(0), out = dup(1);
+  int in = dup(STDIN_FILENO), out = dup(STDOUT_FILENO);
   for (int i = 0; argv[i] != NULL; i++) {
     if (!strcmp(argv[i], "<")) {
       redirect_stdin(argv[++i]);
@@ -311,17 +311,17 @@ int parseline(char *buf, char *argv[], int argc) {
 }
 void redirect_stdin(char *argv) {
   int fp = open(argv, O_RDONLY);
-  dup2(fp, 0);
+  dup2(fp, STDIN_FILENO);
   close(fp);
 }
 void redirect_stdout(char *argv) {
   int fp = open(argv, O_WRONLY | O_CREAT, 0644);
-  dup2(fp, 1);
+  dup2(fp, STDOUT_FILENO);
   close(fp);
 }
 int return_with_reset_inout(int in, int out, int x) {
-  dup2(in, 0);
-  dup2(out, 1);
+  dup2(in, STDIN_FILENO);
+  dup2(out, STDOUT_FILENO);
   close(in);
   close(out);
   return x;
