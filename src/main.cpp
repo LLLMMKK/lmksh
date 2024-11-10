@@ -1,5 +1,5 @@
-#include "../include/command_line.h"
-#include "../include/redirect.h"
+#include "../include/command_line.hpp"
+#include "../include/redirect.hpp"
 #include <csetjmp>
 #include <cstddef>
 #include <cstdio>

@@ -13,5 +13,5 @@ int main(int argc, char *argv[], char *envp[]) {
     close(fd);
     utime(argv[i], NULL);
   }
-  return 0;
+  exit(0);
 }

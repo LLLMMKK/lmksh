@@ -5,6 +5,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 int main(int argc, char *argv[], char *envp[]) {
+
+  for (int i = 0; argv[i] != NULL; i++)
+    fprintf(stderr, "%s#", argv[i]);
+
   int isnull = 1;
   for (int i = 1; argv[i] != NULL; i++) {
     if (!strcmp(argv[i], "<") || !strcmp(argv[i], ">")) {

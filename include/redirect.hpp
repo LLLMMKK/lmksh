@@ -1,4 +1,11 @@
-#include "../include/redirect.h"
+#ifndef REDIRECT_H
+#define REDIRECT_H
+
+#include <algorithm>
+#include <cstring>
+#include <fcntl.h>
+#include <unistd.h>
+
 void redirect_stdin(char *argv) {
   int fp = open(argv, O_RDONLY);
   dup2(fp, STDIN_FILENO);
@@ -27,3 +34,5 @@ void check_redir(char **argv, int argc) {
     }
   }
 }
+
+#endif

@@ -1,9 +1,12 @@
-#include "../include/command_line.h"
-#include "../include/redirect.h"
-#include <stdio.h>
+#ifndef COMMAND_LINE_H
+#define COMMAND_LINE_H
 
+#include "../include/redirect.hpp"
+#include <stdio.h>
 #define MAXLINE 8192
 #define MAXARGS 256
+
+extern char **environ;
 // if first arg is a buitin command,run and return true
 int builtin_command(char *argv[]) {
   int in = dup(STDIN_FILENO), out = dup(STDOUT_FILENO);
@@ -104,9 +107,16 @@ int parseline(char *buf, char *argv[], int argc) {
 
   return 0;
 }
-void execve_command(char **argv) {
+void execve_command(char *argv[]) {
+
+  for (int i = 0; argv[i] != NULL; i++)
+    fprintf(stderr, "%s@QWQ ", argv[i]);
+
   char ex_path[MAXLINE];
+  for (int i = 0; argv[i] != NULL; i++)
+    fprintf(stderr, "%s@QWQ ", getenv("HOME"));
   strcpy(ex_path, getenv("HOME"));
+
   strcat(ex_path, "/codes/c++/lmksh/command/mine/");
   strcat(ex_path, argv[0]);
 
@@ -126,3 +136,5 @@ void execve_command(char **argv) {
     exit(0);
   }
 }
+
+#endif
