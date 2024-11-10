@@ -29,8 +29,8 @@ int main(int argc, char *argv[]) {
   if (pid == 0) {
 
     if (!builtin_command(argv + 1)) {
-      for (int i = 0; argv[i] != NULL; i++)
-        fprintf(stderr, "%s@qwq ", argv[i]);
+      // for (int i = 0; argv[i] != NULL; i++)
+      //   fprintf(stderr, "%s@qwq ", argv[i]);
       execve_command(argv + 1);
     }
 

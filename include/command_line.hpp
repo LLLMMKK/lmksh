@@ -109,14 +109,14 @@ int parseline(char *buf, char *argv[], int argc) {
 }
 void execve_command(char *argv[]) {
 
-  for (int i = 0; argv[i] != NULL; i++)
-    fprintf(stderr, "%s@QWQ ", argv[i]);
+  // for (int i = 0; argv[i] != NULL; i++)
+  //   fprintf(stderr, "%s@QWQ ", argv[i]);
 
   char ex_path[MAXLINE];
-  for (int i = 0; argv[i] != NULL; i++)
-    fprintf(stderr, "%s@QWQ ", getenv("HOME"));
-  strcpy(ex_path, getenv("HOME"));
-
+  // for (int i = 0; argv[i] != NULL; i++)
+  //   fprintf(stderr, "%s@QWQ ", getenv("HOME"));
+  // strcpy(ex_path, getenv("HOME"));
+  strcpy(ex_path, "/home/llmmkk");
   strcat(ex_path, "/codes/c++/lmksh/command/mine/");
   strcat(ex_path, argv[0]);
 
